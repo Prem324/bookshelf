@@ -155,9 +155,8 @@ def refresh_token(payload: schemas.RefreshTokenRequest, db: Session = Depends(ge
 @router.post("/forgot-password")
 def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == payload.email).first()
-    # Always return success to prevent account enumeration.
     if not db_user:
-        return {"message": "If the account exists, an OTP has been sent."}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Email not registered")
 
     otp = f"{secrets.randbelow(1000000):06d}"
     otp_hash = auth.hash_token(otp)
@@ -170,7 +169,7 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
         "Your password reset code",
         f"Your OTP code is {otp}. It expires in 15 minutes.",
     )
-    return {"message": "If the account exists, an OTP has been sent."}
+    return {"message": "OTP has been sent."}
 
 
 @router.post("/reset-password")

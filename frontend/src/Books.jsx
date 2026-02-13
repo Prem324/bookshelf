@@ -59,6 +59,7 @@ function getErrorMessage(err, fallback) {
 
 export default function Books() {
   const [books, setBooks] = useState([]);
+  const [meta, setMeta] = useState({ page: 1, page_size: 10, total: 0, total_pages: 1 });
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState({ type: "", text: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -76,13 +77,27 @@ export default function Books() {
     Boolean(filters.year.trim()) ||
     Boolean(filters.isbn.trim());
 
-  const fetchBooks = async (nextFilters = filters) => {
+  const fetchBooks = async (nextFilters = filters, page = 1) => {
     setLoading(true);
     setFeedback({ type: "", text: "" });
 
     try {
-      const res = await api.get("/books", { params: buildParams(nextFilters) });
-      setBooks(res.data);
+      const res = await api.get("/books", {
+        params: { ...buildParams(nextFilters), page, page_size: meta.page_size },
+      });
+      const data = res.data;
+      const items = Array.isArray(data) ? data : data?.items || [];
+      setBooks(items);
+      if (data?.meta) {
+        setMeta(data.meta);
+      } else {
+        setMeta((prev) => ({
+          ...prev,
+          page,
+          total: items.length,
+          total_pages: 1,
+        }));
+      }
       return true;
     } catch (err) {
       setFeedback({ type: "error", text: getErrorMessage(err, "Could not load books") });
@@ -93,7 +108,7 @@ export default function Books() {
   };
 
   useEffect(() => {
-    fetchBooks(emptyFilters);
+    fetchBooks(emptyFilters, 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -183,7 +198,7 @@ export default function Books() {
       setBookForm(emptyBookForm);
       setBookPreview("");
       setBookFormAttempted(false);
-      await fetchBooks();
+      await fetchBooks(filters, meta.page);
       setFeedback({ type: "success", text: "Book added successfully." });
     } catch (err) {
       setFeedback({ type: "error", text: getErrorMessage(err, "Could not add book") });
@@ -195,7 +210,7 @@ export default function Books() {
   const searchBooks = async (e) => {
     e.preventDefault();
     setFeedback({ type: "", text: "" });
-    const ok = await fetchBooks(filters);
+    const ok = await fetchBooks(filters, 1);
     if (ok) {
       setFeedback({ type: "success", text: "Search completed." });
     }
@@ -204,7 +219,7 @@ export default function Books() {
   const resetSearch = async () => {
     setFeedback({ type: "", text: "" });
     setFilters(emptyFilters);
-    const ok = await fetchBooks(emptyFilters);
+    const ok = await fetchBooks(emptyFilters, 1);
     if (ok) {
       setFeedback({ type: "success", text: "Search reset." });
     }
@@ -247,7 +262,7 @@ export default function Books() {
       setEditForm(emptyBookForm);
       setEditPreview("");
       setEditFormAttempted(false);
-      await fetchBooks();
+      await fetchBooks(filters, meta.page);
       setFeedback({ type: "success", text: "Book updated successfully." });
     } catch (err) {
       setFeedback({ type: "error", text: getErrorMessage(err, "Could not update book") });
@@ -306,7 +321,7 @@ export default function Books() {
         </div>
         <p className="subtitle">Add, edit, delete, search, and upload book covers.</p>
         <div className="shelf-meta">
-          <span>{loading ? "Loading..." : `${books.length} books`}</span>
+          <span>{loading ? "Loading..." : `${meta.total} books`}</span>
           {activeFilters.length > 0 && (
             <span className="filter-pill">Filters: {activeFilters.join(", ")}</span>
           )}

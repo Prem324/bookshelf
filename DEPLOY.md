@@ -1,22 +1,33 @@
-## Deploy Guide (Supabase + Render + Vercel)
+## Deploy Guide (Microservices + Render + Vercel)
 
-### 1) Backend deploy (Render)
+### 1) Auth service deploy (Render)
 
 - Create a **Web Service** from this repo.
-- Root directory: `backend`
+- Root directory: `auth-service`
 - Build command: `pip install -r requirements.txt`
 - Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-Set backend env vars in Render:
+Set auth-service env vars in Render:
 
 - `DATABASE_URL`
 - `SECRET_KEY`
+
+### 2) Book service deploy (Render)
+
+- Create a **Web Service** from this repo.
+- Root directory: `book-service`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+
+Set book-service env vars in Render:
+
+- `DATABASE_URL`
+- `AUTH_SERVICE_URL` (your auth-service Render URL)
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_BUCKET` (example: `book-images`)
-- `FRONTEND_ORIGINS` (your Vercel URL, comma-separated if multiple)
+- `SUPABASE_BUCKET`
 
-### 2) Frontend deploy (Vercel)
+### 3) Frontend deploy (Vercel)
 
 - Import this repo in Vercel.
 - Root directory: `frontend`
@@ -25,14 +36,15 @@ Set backend env vars in Render:
 
 Set frontend env var in Vercel:
 
-- `VITE_API_BASE_URL=https://<your-render-backend-domain>`
+- `VITE_AUTH_API_BASE_URL=https://<your-auth-service-domain>`
+- `VITE_BOOKS_API_BASE_URL=https://<your-book-service-domain>`
 
-### 3) Supabase storage setup
+### 4) Supabase storage setup
 
 - Create bucket: `book-images` (or any of your chosen name).
 - Make it public if you want direct image URLs.
 
-### 4) Verify
+### 5) Verify
 
 - Open deployed frontend URL.
 - Register/Login.

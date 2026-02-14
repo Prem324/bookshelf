@@ -1,18 +1,22 @@
+import json
 import os
 import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.encoders import jsonable_encoder
 import requests
 from sqlalchemy.orm import Session
 
 import auth, models, schemas
 from database import SessionLocal
+from redis_client import get_redis_client
 
 router = APIRouter(prefix="/books")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "")
+CACHE_TTL_SECONDS = 300
 
 
 def _supabase_headers(content_type: str | None = None) -> dict:
@@ -144,6 +148,29 @@ def get_books(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    cache_key = None
+    redis_client = get_redis_client()
+    if redis_client:
+        try:
+            cache_key_parts = [
+                "books",
+                str(user_id),
+                user.role or "user",
+                title or "",
+                author or "",
+                str(year) if year is not None else "",
+                isbn or "",
+                str(page),
+                str(page_size),
+                sort,
+            ]
+            cache_key = ":".join(cache_key_parts)
+            cached = redis_client.get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            cache_key = None
+
     query = db.query(models.Book)
     if user.role != "admin":
         query = query.filter(models.Book.owner_id == user_id)
@@ -168,7 +195,7 @@ def get_books(
     total_pages = max(1, (total + page_size - 1) // page_size)
     items = query.offset((page - 1) * page_size).limit(page_size).all()
 
-    return {
+    response_payload = {
         "items": items,
         "meta": {
             "page": page,
@@ -177,6 +204,15 @@ def get_books(
             "total_pages": total_pages,
         },
     }
+    encoded_payload = jsonable_encoder(response_payload)
+
+    if redis_client and cache_key:
+        try:
+            redis_client.setex(cache_key, CACHE_TTL_SECONDS, json.dumps(encoded_payload))
+        except Exception:
+            pass
+
+    return encoded_payload
 
 
 @router.put("/{book_id}", response_model=schemas.BookOut)

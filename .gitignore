@@ -26,6 +26,8 @@ ENV/
 # Backend secrets/local config
 backend/.env
 backend/uploads/
+auth-service/.env
+book-service/.env
 
 # Node/Frontend
 frontend/node_modules/

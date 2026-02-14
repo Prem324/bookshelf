@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  auth-service:
+    build: ./auth-service
+    container_name: bookshelf_auth
+    env_file: ./auth-service/.env
+    ports:
+      - "8001:8000"
+    restart: always
+
+  book-service:
+    build: ./book-service
+    container_name: bookshelf_books
+    env_file: ./book-service/.env
+    ports:
+      - "8002:8000"
+    depends_on:
+      - redis
+    restart: always
+
+  db:
+    image: postgres:15
+    container_name: bookshelf_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bookshelf
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+
+  redis:
+    image: redis:7
+    container_name: bookshelf_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  postgres_data:

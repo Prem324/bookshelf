@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "./api";
+import { authApi } from "./api";
 import Toast from "./Toast";
 
 function getErrorMessage(err, fallback) {
@@ -35,7 +35,7 @@ export default function Register() {
     setSubmitting(true);
 
     try {
-      await api.post("/users/register", {
+      await authApi.post("/users/register", {
         name,
         email,
         password,

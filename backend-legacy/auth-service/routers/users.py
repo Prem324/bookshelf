@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 import requests
 
@@ -51,17 +52,6 @@ def _send_email(to_email: str, subject: str, body: str) -> None:
     )
 
 
-def get_current_user(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(auth.get_current_user_id),
-) -> models.User:
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    return user
-
-
-# Register
 @router.post("/register", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
@@ -72,7 +62,6 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         )
 
     hashed = auth.hash_password(user.password)
-
     new_user = models.User(
         name=user.name,
         email=user.email,
@@ -87,10 +76,8 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-# Login
 @router.post("/login", response_model=schemas.TokenResponse)
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
-
     db_user = db.query(models.User).filter(
         models.User.email == user.email
     ).first()
@@ -155,6 +142,24 @@ def refresh_token(payload: schemas.RefreshTokenRequest, db: Session = Depends(ge
     db.commit()
 
     return {"token": new_access, "refresh_token": new_refresh}
+
+
+@router.get("/validate")
+def validate_token(credentials: HTTPAuthorizationCredentials = Depends(auth.security)):
+    payload = auth.decode_token(credentials.credentials)
+    token_type = payload.get("type")
+    if token_type != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+    user_id = payload.get("id")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token missing user id",
+        )
+    return {"user_id": int(user_id), "role": payload.get("role")}
 
 
 @router.post("/forgot-password")

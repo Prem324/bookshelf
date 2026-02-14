@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "./api";
+import { authApi } from "./api";
 import Toast from "./Toast";
 
 function getErrorMessage(err, fallback) {
@@ -45,7 +45,7 @@ export default function Login() {
     setSubmitting(true);
 
     try {
-      const res = await api.post("/users/login", {
+      const res = await authApi.post("/users/login", {
         email,
         password,
       });
@@ -76,7 +76,7 @@ export default function Login() {
     setSendingOtp(true);
     setToast({ type: "", text: "" });
     try {
-      await api.post("/users/forgot-password", { email: targetEmail });
+      await authApi.post("/users/forgot-password", { email: targetEmail });
       setResetEmail(targetEmail);
       setToast({ type: "success", text: "OTP sent. Check your email." });
     } catch (err) {
@@ -105,7 +105,7 @@ export default function Login() {
     setResetting(true);
     setToast({ type: "", text: "" });
     try {
-      await api.post("/users/reset-password", {
+      await authApi.post("/users/reset-password", {
         email: targetEmail,
         otp,
         new_password: newPassword,
